@@ -1,5 +1,7 @@
 #################Using DADA2 to generate ASV in R##########
 
+######Detailed method reference：https://benjjneb.github.io/dada2/ITS_workflow.html###########
+
 library(dada2)
 packageVersion("dada2")
 library(ShortRead)
@@ -16,11 +18,6 @@ fnRs <- sort(list.files(path, pattern = "_2.fastq.gz", full.names = TRUE))
 FWD <- "GGGCAATCCTGAGCCAA"  ## CHANGE ME to your forward primer sequence  trnl
 REV <- "CCATTGAGTCTCTGCACCTATC"  ## CHANGE ME...
 
-FWD <- "GGAAGTAAAGTAAAAGTCGTAAAGG"  ## CHANGE ME to your forward primer sequence  
-REV <- "GCTGCGTTCTTCATCGATGC"  ## CHANGE ME...
-
-
-
 allOrients <- function(primer) {
   # Create all orientations of the input sequence
   require(Biostrings)
@@ -31,7 +28,9 @@ allOrients <- function(primer) {
 }
 FWD.orients <- allOrients(FWD)
 REV.orients <- allOrients(REV)
-FWD.orients
+
+#FWD.orients
+#REV.orients
 
 fnFs.filtN <- file.path(path, "filtN", basename(fnFs)) # Put N-filterd files in filtN/ subdirectory
 fnRs.filtN <- file.path(path, "filtN", basename(fnRs))
@@ -125,16 +124,16 @@ colnames(track) <- c("input", "filtered", "denoisedF", "denoisedR", "merged",
 rownames(track) <- sample.names
 head(track)
 
+#write.table(track,"summary.txt",sep = "\t", quote = F)
+
 ####The following steps are optional###################
 
 ####Species annotation 1: For the Unity database, the Qiime official website recommends using the dev version, and the training set does not undergo primer reduction
+
 unite.ref <- "sh_general_release_dynamic_29.11.2022_dev.fasta"  # CHANGE ME to location on your machine
 taxa <- assignTaxonomy(seqtab.nochim, unite.ref, multithread = TRUE, tryRC = TRUE)
 
-seqtab.nochim <- read.delim("clipboard",header = T,row.names = 1)
-trnl.ref <- "ref_plant_trnl.fasta"  # CHANGE ME to location on your machine
-taxa <- assignTaxonomy(seqtab.nochim, trnl.ref, multithread = TRUE, tryRC = TRUE)
-write.csv(taxa,"r分类_40.csv")
+#write.csv(taxa,"R_classification.csv")
 
 ###Species Annotation 2! Faster and more accurate
 library(DECIPHER)
@@ -154,23 +153,14 @@ taxid <- t(sapply(ids, function(x) {
 colnames(taxid) <- ranks
 rownames(taxid) <- getSequences(seqtab.nochim)
 
-
-
-
-
-setwd("D:/Desktop/")
-write.table(seqtab.nochim,"seqtab.nochim.txt",quote = F,sep = "\t")
-
-
-
 #remotes::install_github("fkeck/refdb")
-###数据库操作####txid35493为链形植物
+###Database operations####txid35493 is a chain plant
 library(refdb)
 packageVersion("refdb")
 library(tidyverse)
 library(ggplot2)
 
-##下载trnl数据from NCBI
+##Download trnl data from NCBI
 #plant_trnl_dataset <- refdb_import_NCBI("txid33090[ORGN] AND (trnL OR tRNA-Leu OR trn-L OR trn L) AND (chloroplast[Filter] OR plastid[Filter]) NOT environmental sample[Filter] NOT environmental samples[Filter] NOT environmental[Title] NOT uncultured[Title] NOT unclassified[Title] NOT unidentified[Title] NOT unverified[Title]",seq_bin = 2000)
 #write.table(plant_trnl_dataset,"plant_trnl_dataset.txt",quote = F,sep = "\t")
 lib <- read.delim2(file.choose(),header = T,check.names = F,stringsAsFactors = F)
@@ -179,7 +169,7 @@ lib <- refdb_set_fields(lib,taxonomy = c(kingdom = "kingdom",class = "class",
                                       order = "order",family = "family",
                                       genus = "genus",species = "species"),
                          sequence = "sequence",marker = "gene")
-##规范分类名
+##Standardized classification name
 length(unique(lib$species))
 lib <- refdb_clean_tax_remove_extra(lib)
 length(unique(lib$species))
@@ -192,9 +182,9 @@ length(unique(lib$species))
 lib <- refdb_clean_tax_NA(lib)
 length(unique(lib$species))
 
-##清洗数据
+##Clean data
 refdb_plot_seqlen_hist(lib)
-#lib1 <- refdb_filter_seq_duplicates(lib)###去除重复
+#lib1 <- refdb_filter_seq_duplicates(lib)###Remove Duplicates
 lib <- refdb_clean_seq_remove_gaps(lib)
 lib <- refdb_clean_seq_crop_primers(lib,primer_forward = "CGAAATCGGTAGACGCTACG", primer_reverse = "CCATTGAGTCTCTGCACCTATC", 
                                     max_error_in = 0.6, max_error_out = 0.6, include_primers = T)
@@ -214,7 +204,6 @@ lib <- refdb_set_fields(lib, latitude = "latitude", longitude = "longitude")
 lib[,13:14] <- lapply(lib[,13:14],as.numeric)
 refdb_plot_map(lib)
 
-##导出
 
 x <- paste(paste("k__",lib1$kingdom,sep = ""),
            paste("p__",lib1$phylum,sep = ""),
@@ -232,9 +221,8 @@ re1 <- data.frame(ref)
 
 
 
-
-co1_dataset <- refdb_import_NCBI("txid6656[ORGN] AND (CO1 OR CO-1 OR CO 1 OR COI OR CO I OR CO-I) NOT environmental sample[Filter] NOT environmental samples[Filter] NOT environmental[Title] NOT uncultured[Title] NOT unclassified[Title] NOT unidentified[Title] NOT unverified[Title]",
-                                      seq_bin = 1000)
+##################COI###############################################################
+co1_dataset <- refdb_import_NCBI("txid6656[ORGN] AND (CO1 OR CO-1 OR CO 1 OR COI OR CO I OR CO-I) NOT environmental sample[Filter] NOT environmental samples[Filter] NOT environmental[Title] NOT uncultured[Title] NOT unclassified[Title] NOT unidentified[Title] NOT unverified[Title]",seq_bin = 1000)
 
 ####################################################################################
 
@@ -245,7 +233,7 @@ co1_dataset <- refdb_import_NCBI("txid6656[ORGN] AND (CO1 OR CO-1 OR CO 1 OR COI
 #Firstly, we need to load the "vegan" package
 
 #Load the working directory, which needs to be replaced with your own
-setwd("D:/办公/食物条形码/正式数据/数据转换/ncbi手动比对/饮食数据")
+setwd("D:/Diet Data")
 #Load otu table （or ASV）
 otu = read.table(file.choose(), header=T, sep="\t", quote = "", row.names=1, comment.char="",stringsAsFactors = FALSE) 
 #Sum to view the sum of each sample
@@ -255,7 +243,7 @@ otu_Flattening = as.data.frame(t(rrarefy(t(otu), min(colSums(otu)))))
 #View the sum of each sample after leveling
 colSums(otu_Flattening)
 #Save the flattened OTU table to this working directory for future diversity analysis
-write.table (otu_Flattening, file ="183asv-otu_Flattening_diet.txt",sep ="\t", quote =FALSE) #结果导出
+write.table (otu_Flattening, file ="183asv-otu_Flattening_diet.txt",sep ="\t", quote =FALSE) #Export Results
 
 #######################################################################
 #Flattening Method 2
@@ -287,7 +275,7 @@ sample_sums(otu_Flattening1)
 otu_Flattening1 = as.data.frame(otu_Flattening1@.Data )
 
 #Save the flattened OTU table to this working directory for future diversity analysis
-write.table (otu_Flattening1, file ="otu_Flattening1.csv",sep =",", quote =FALSE) 
+write.table (otu_Flattening1, file ="otu_Flattening1.txt",sep ="\t", quote =F) 
 
 ###########################################
 
@@ -319,114 +307,73 @@ index1$Sobs<-obs_chao1_ace[,1]
 index1$Pielou <- Shannon / log(Richness, 2)
 index1$Goods_coverage <- 1 - colSums(otu == 1) / colSums(otu)
 #Merge and export data
-write.table(cbind(sample=c(rownames(index1)),index1),'183asv-totalcp.alpha_diet_chouping.txt',row.names = F,sep = '\t',quote = F)
+write.table(cbind(sample=c(rownames(index1)),index1),"alpha_diet.txt",sep = "\t",quote = F)
 
 
 ###########Visualization 1############
+
 library(amplicon)
 # Read metadata, specify parameters including title row (TRUE), column name as 1 column, tab separated, no comment row, and do not convert to factor type
-metadata = read.table("../Data/Science2019/metadata.txt", header=T, row.names=1, sep="\t", comment.char="", stringsAsFactors = F)
-# Preview the first 3 rows of metadata, pay attention to grouping column names
-head(metadata, n = 3)
+metadata = read.table("../metadata.txt", header=T, row.names=1)
+# Preview the first 4 rows of metadata, pay attention to grouping column names
+head(metadata, n = 4)
 
 # Read vegan and calculate six alpha diversity indices. 
-alpha_div = read.table("../Data/Science2019/alpha/vegan.txt", header=T, row.names=1, sep="\t", comment.char="")
+alpha_div = read.table("../alpha/vegan.txt", header=T, row.names=1, sep="\t", comment.char="")
 # Preview the first 3 lines of the diversity index, annotate the column names of each index
 head(alpha_div, n = 3)
 df1 <- read.delim(file.choose(),row.names = 1,header = T)
 # Draw the Shannon index distribution for each group, and the outer layer () can preview the saved graphics simultaneously
 (p = alpha_boxplot(df1, index = "simpson", df, groupID = "season"))
 
-# 保存图片，指定图片为pdf格式方便后期修改，图片宽89毫米，高56毫米
-ggsave(paste0("alpha_boxplot_shannon.pdf"), p, width=89, height=56, units="mm")
-ggsave(paste0("8.png"), p, width=89, height=56, units="mm")
+#ggsave(paste0("alpha_boxplot_shannon.pdf"), p, width=89, height=56, units="mm")
+#ggsave(paste0("8.png"), p, width=89, height=56, units="mm")
 
 ##################Visualization 2###########
 
 library(ggplot2)
 library(dplyr)
 library(ggpubr) 
-setwd("D:/办公/食物条形码/正式数据/微生物/陈-数据/功能预测")
-data <- read.delim("179asv-totalcp.alpha_diet_chouping.txt",row.names = 1)
+setwd("D:/DIET")
+data <- read.delim("alpha_diet.txt",row.names = 1)
 data <- as.data.frame(t(data))
 data$ID <-row.names(data) 
 meta <- read.delim("metadata.txt",row.names = 1)
 meta$ID <- row.names(meta)
 data <- merge(data, meta, by = 'ID')
 
-data <- read.delim(file.choose(),header = T,row.names = 1)
-data <- sweep(data,2,colSums(data),"/")
-data <- t(data)
-data <- data.frame(data)
-data$ID <- rownames(data)
-data1 <- merge(data, metadata, by = 'ID')
+#data <- read.delim(file.choose(),header = T,row.names = 1)
+#data <- sweep(data,2,colSums(data),"/") #relative abundance
 
-.data <- sweep(data,2,colSums(data),"/")  #相对丰度
+#write.table(data,"L2.txt",sep = "\t" , quote = F)
 
-write.table(data,"L2-.txt",sep = "\t" , quote = F)
+#Selecting Subsets
+#d1 <- data[which(data1$gender=="Male"),]
+#d2 <- data[which(data1$gender=="Female"),]
 
-meta <- read.delim(file.choose(),header = T)
+color <- c(“#”,“#”,“#”,“#”,“#”)#Choose your favorite color
 
-data2 <- merge(data1,meta,by.x = "ID", by.y = "ID")
+data$season <- factor(data1$season,levels = c("spring","summer","autumn","winter"))
 
-#挑选子集
-d1 <- data1[which(data1$gender=="Male"),]
-d2 <- data1[which(data1$gender=="Female"),]
-
-col1 = rgb(250/255,60/255,60/255)
-col2 = rgb(0/255,220/255,0/255)
-col3 = rgb(30/255,60/255,255/255)
-col4 = rgb(0/255,200/255,200/255)
-col5 = rgb(240/255,0/255,130/255)
-col6 = rgb(230/255,220/255,50/255)
-col7 = rgb(240/255,130/255,40/255)
-col8 = rgb(160/255,0/255,200/255)
-col9 = rgb(160/255,230/255,50/255)
-col10 = rgb(0/255,160/255,255/255)
-col11 = rgb(230/255,175/255,45/255)
-col12 = rgb(0/255,210/255,140/255)
-col13 = rgb(247/255,153/255,209/255)
-
-color <- c(col1,col3,col7,col13,col12)
-data1 <- data
-
-data1$BC <- factor(data1$BC,levels = c("Enterotype1", "Enterotype2","Enterotype3", "Enterotype4"))#排序
-data1$season <- factor(data1$season,levels = c("spring","summer","autumn","winter"))
-#comparisons=list(c("Spring","Summer"), c("Spring","Autumn"),c("Spring","Winter"),c("Summer","Autumn"),c("Summer","Winter"),c("Autumn","Winter"))
-#comparisons=list(c("spring","summer"), c("spring","autumn"),c("spring","winter"),c("summer","autumn"),c("summer","winter"),c("autumn","winter"))
-#comparisons=list(c("Enterotype1", "Enterotype2"),c("Enterotype1", "Enterotype3"),c("Enterotype1", "Enterotype4"), c("Enterotype2", "Enterotype3"),c("Enterotype2", "Enterotype4"),c("Enterotype3", "Enterotype4"))
-#comparisons=list(c("Enterotype1", "Enterotype3"),c("Enterotype1", "Enterotype4"),c("Enterotype3", "Enterotype4"))
-#comparisons=list(c("Male", "Female"))
-
-p <- ggboxplot(data1, x = "BC", y = "Ruminococcaceae.UCG.013",color = "BC",add="jitter",width =0.3,size=1)+
-  xlab("Enterotype")+theme(panel.background=element_blank(),panel.border=element_rect(linetype="solid",fill=NA))+
+p <- ggboxplot(data, x = "season", y = "Shannon",color = "season",add="jitter",width =0.3,size=1)+
+  xlab("season")+theme(panel.background=element_blank(),panel.border=element_rect(linetype="solid",fill=NA))+
   scale_color_manual(values = color)+
   theme(axis.text=element_text(size=15,color="black"),axis.title=element_text(size=15,face="bold",color="black"))+
   theme(legend.position = "right",legend.text=element_text(face="bold",size=12))+
-  stat_compare_means(method = "kruskal", size = 3)+#添加kw检验
-  stat_compare_means(method = "wilcox.test",comparisons=list(c("Enterotype1", "Enterotype2"),c("Enterotype1", "Enterotype3"),c("Enterotype1", "Enterotype4"), c("Enterotype2", "Enterotype3"),c("Enterotype2", "Enterotype4"),c("Enterotype3", "Enterotype4")),label='p.signif',map_signif_level=T)
+  stat_compare_means(method = "kruskal", size = 3)+#Add kw 
+  stat_compare_means(method = "wilcox.test",comparisons=list(c("spring","summer"),c("spring","autumn"),c("spring","winter"),c("summer","autumn"),c("summer","winter"),c("autumn","winter")),label='p.signif',map_signif_level=T)
 
 p
 
 
-
-
-p <- ggboxplot(data1, x = "gender", y = "Shannon",color = "gender",add="jitter",width =0.3,size=1)+
-  xlab("gender")+theme(panel.background=element_blank(),panel.border=element_rect(linetype="solid",fill=NA))+
-  scale_color_manual(values = color)+
-  theme(axis.text=element_text(size=15,color="black"),axis.title=element_text(size=15,face="bold",color="black"))+
-  theme(legend.position = "right",legend.text=element_text(face="bold",size=12))+
-  stat_compare_means(method = "kruskal", size = 3)+#添加kw检验
-  stat_compare_means(method = "wilcox.test",comparisons=list(c("Male", "Female")),label='p.signif',map_signif_level=T)
-p
-
-#同一季节显示不同性别
-ggplot(data1,aes(season,Simpson,fill=gender))+geom_boxplot()+
+#Display different genders in the same season
+ggplot(data,aes(season,Simpson,fill=gender))+geom_boxplot()+
   theme(panel.background=element_blank(),panel.border=element_rect(linetype="solid",fill=NA))+
   theme(legend.position = "right",legend.text=element_text(face="bold",size=12))+
   theme(axis.text=element_text(size=15,color="black"),axis.title=element_text(size=15,face="bold",color="black"))+
   stat_compare_means(method = "kruskal", size = 3)
-  stat_compare_means(method = "wilcox.test",comparisons=list(c("Male","Female")),label='p.signif',map_signif_level=T)
+
+#stat_compare_means(method = "wilcox.test",comparisons=list(c("Male","Female")),label='p.signif',map_signif_level=T)
 
 
 ################Difference results##########
@@ -434,22 +381,6 @@ ggplot(data1,aes(season,Simpson,fill=gender))+geom_boxplot()+
 library(rstatix)
 
 da <- read.table(file.choose(),row.names = 1,header = T)
-
-v <- compare_means(Shannon ~ season,da)
-c <- compare_means(Simpson ~ season,da)
-b <- compare_means(Shannon ~ gender,da,group.by = "season")
-d <- compare_means(Simpson ~ gender,da,group.by = "season")
-f <- compare_means(Simpson ~ season, da, method = "kruskal.test")
-kruskal.test(Simpson ~ season,data=da)
-kruskal.test(Shannon ~ season,data=da)
-wilcox.test(Simpson ~ season, data = da ,group.by = "season")
-
-ss <- da[which(da$season=="spring"),]
-s <- da[which(da$season=="summer"),]
-ss <- rbind(ss,s)
-
-wilcox.test(Simpson ~ season, data = ss ,group.by = "season")
-
 
 da %>%
   group_by(season) %>%
@@ -484,44 +415,38 @@ summary(anosim.result)
 
 library(vegan)
 #install.packages("vegan")
-##第 1 种模式，输入距离矩阵排序
-#读取 OTU 丰度表
-a <- read.csv(file.choose())
-?write.table
-write.table(a,"a.txt",quote = F, row.names = T,sep = "\t")
+#Read OTU abundance table
 
-
-otu <- read.table("D:/办公/食物条形码/测试数据/zokor1/a.txt",header = T ,row.names = 1)
+otu <- read.table("D:/DIET/a.txt",header = T ,row.names = 1)
 otu <- data.frame(t(otu))
 
-#转相对丰度
-otu1 <- sweep(otu,2,colSums(otu),"/")
+#otu1 <- sweep(otu,2,colSums(otu),"/")
 
 bray_dis <- vegdist(otu, method = 'bray')
 
 nmds_dis <- metaMDS(bray_dis, k = 2)
-#应力函数值，一般不大于 0.2 为合理
+#The stress function value is generally not greater than 0.2, which is reasonable
 nmds_dis$stress
-#样方得分
+#Quadrat score
 nmds_dis_site <- data.frame(nmds_dis$points)
-#write.table(nmds_dis_site, 'nmds_dis_site.txt', sep = '\t', col.names = NA, quote = FALSE)
+#write.table(nmds_dis_site, 'nmds_dis_site.txt', sep = '\t', col.names = NA, quote = F)
 
-#详情 ?wascores
+#?wascores
 nmds_dis_species <- wascores(nmds_dis$points, otu)
 
 library(ggplot2)
 
-#主要展示 top10 丰度物种
+#Mainly showcasing top 10 abundance species
 abundance <- apply(otu1, 2, sum)
 abundance_top10 <- names(abundance[order(abundance, decreasing = TRUE)][1:10])
 species_top10 <- data.frame(nmds_dis_species[abundance_top10,1:2])
 species_top10$name <- rownames(species_top10)
 
 
-#添加分组信息 上传分组文件
+#Add group information and upload group files
 
 nmds_dis_site$name <- rownames(nmds_dis_site)
-map<-read.table("D:/办公/食物条形码/测试数据/zokor1/metadata.txt",header=T,sep="\t",row.names=1)
+map<-read.table("D:/DIET/metadata.txt",header=T,sep="\t",row.names=1)
 #nmds_dis_site$group <- map$group
 merged=merge(nmds_dis_site,map,by="row.names",all.x=TRUE)
 color=c( "#3C5488B2","#00A087B2", 
@@ -537,7 +462,7 @@ color=c( "#3C5488B2","#00A087B2",
 
 p <- ggplot(data = merged, aes(MDS1, MDS2)) +
   geom_point(size=2,aes(color =  SampleName,shape = Gender)) +
-  stat_ellipse(aes(fill = Gender), geom = 'polygon', level = 0.95, alpha = 0.1, show.legend = FALSE) +   #添加置信椭圆，注意不是聚类
+  stat_ellipse(aes(fill = Gender), geom = 'polygon', level = 0.95, alpha = 0.1, show.legend = FALSE) +   #Add a confidence ellipse, note that it is not clustering
   scale_color_manual(values =color[1:length(unique(map$Gender))]) +
   scale_fill_manual(values = color[1:length(unique(map$Gender))]) +
   theme(panel.grid.major = element_line(color = 'gray', size = 0.2), panel.background = element_rect(color = 'black', fill = 'transparent'), 
@@ -554,26 +479,20 @@ geom_text(data = species_top10, aes(label = name), color ="royalblue4", size = 4
 
 p
 
-# 热图
+# Heat Map
 install.packages("pheatmap")
 library(pheatmap)
-otu <- read.table("D:/办公/食物条形码/测试数据/yaks/otu.txt",header = T ,row.names = 1)
+otu <- read.table("D:/DIET/otu.txt",header = T ,row.names = 1)
 otu <- t(otu)
 pheatmap(otu[1:10])
 
 
-#Find relative abundance
-
-res4 <- sweep(otu,2,colSums(otu),`/`)
-
-write.csv(res4,"res4.csv")
-
 #2
-#加载R包
+#Load R package
 library(yyplot)
 install.packages("yyplot")
 BiocManager::install("yyplots")
-#安装不了时，用以下方式
+#When it cannot be installed, use the following method
 install.packages("devtools")
 library(devtools)
 BiocManager::install("ggtree")
@@ -584,150 +503,100 @@ library(yyplot)
 library(ggbiplot)
 library(vegan)
 library(ggplot2)
-#导入样本和分组文件
-sample <- read.table("D:/办公/食物条形码/测试数据/zokor1/a.txt",header = T ,row.names = 1,sep = "\t")
-group <- read.table("D:/办公/食物条形码/测试数据/zokor1/metadata.txt",sep = "\t",header = T,row.names = 1)
-group <- group[match(rownames(sample),rownames(group)),] #匹配行名，很重要
-#nmds分析
+#Import sample and group files
+sample <- read.table("D:/a.txt",header = T ,row.names = 1,sep = "\t")
+group <- read.table("D:/metadata.txt",sep = "\t",header = T,row.names = 1)
+group <- group[match(rownames(sample),rownames(group)),] #Matching row names is important
+#nmds
 nmds1 <- metaMDS(sample, distance = 'bray', k = 2)
 summary(nmds1)
-#提取数据
+#Extract data
 nmds1.stress <- nmds1$stress
 nmds1.point <- data.frame(nmds1$point)
 nmds1.species <- data.frame(nmds1$species)
 sample_site <- nmds1.point[1:2]
 sample_site$names <- rownames(sample_site)
 colnames(sample_site)[1:2] <- c('NMDS1', 'NMDS2')
-#合并分组数据
+#Merge grouped data
 sample_site <- cbind(sample_site,group)
 
-#NMDS图绘制
 nmds_plot <- ggplot() +
-  geom_point(data = sample_site, aes(NMDS1, NMDS2,color = SampleName , shape = Gender), size = 5, alpha = 0.8,) + #可在这里修改点的透明度、大小
-  #scale_shape_manual(values = c(17, 16)) + #可在这里修改点的形状
-  #scale_color_manual(values = c('red', 'blue')) + #可在这里修改点的颜色
-  theme(panel.grid = element_blank(), panel.background = element_rect(color = 'black', fill = 'transparent')) + #去掉背景  
-  theme(legend.key = element_rect(fill = 'transparent'), legend.title = element_blank()) + #去掉图例标题及标签背景
+  geom_point(data = sample_site, aes(NMDS1, NMDS2,color = SampleName , shape = Gender), size = 5, alpha = 0.8,) + #Modify the transparency and size of points
+  #scale_shape_manual(values = c(17, 16)) + #Modify the shape of points
+  #scale_color_manual(values = c('red', 'blue')) + #Modify the color of points
+  theme(panel.grid = element_blank(), panel.background = element_rect(color = 'black', fill = 'transparent')) + #Remove background
+  theme(legend.key = element_rect(fill = 'transparent'), legend.title = element_blank()) + #Remove the legend title and label background
   labs(x = 'NMDS axis1', y = 'NMDS axis2', title = paste('Stress =', round(nmds1$stress, 4))) +
-  theme(plot.title = element_text(hjust = 0.5))+  #标题居中
-  theme(panel.background = element_blank(),axis.line = element_line(color = "black"))#去上右边框
+  theme(plot.title = element_text(hjust = 0.5))+  
+  theme(panel.background = element_blank(),axis.line = element_line(color = "black"))
 
-nmds_plot
-#NMDS图绘制
-nmds_plot <- ggplot() +
-  geom_point(data = sample_site, aes(NMDS1, NMDS2,color = SampleName , shape = Gender), size = 5, alpha = 0.8) + #可在这里修改点的透明度、大小
-  #scale_shape_manual(values = c(17, 16)) + #可在这里修改点的形状
-  #scale_color_manual(values = c('red', 'blue')) + #可在这里修改点的颜色
-  geom_ord_ellipse(aes(sample_site$NMDS1,sample_site$NMDS2,group= sample_site$Gender), ##添加0.8置信椭圆
-                   ellipse_pro = 0.8,linetype=2,size=0.7,color='firebrick')+
-  geom_ord_ellipse(aes(sample_site$NMDS1,sample_site$NMDS2,color= sample_site$specie,group= sample_site$Gender),
-                   ellipse_pro = 0.9,linetype=3,size=1)+ ##添加0.9置信椭圆
-  theme(panel.grid = element_blank(), panel.background = element_rect(color = 'black', fill = 'transparent')) + #去掉背景  
-  theme(legend.key = element_rect(fill = 'transparent'), legend.title = element_blank()) + #去掉图例标题及标签背景
-  labs(x = 'NMDS axis1', y = 'NMDS axis2', title = paste('Stress =', round(nmds1$stress, 4))) +
-  theme(plot.title = element_text(hjust = 0.5))+  #标题居中
-  theme(panel.background = element_blank(),axis.line = element_line(color = "black"))#去上右边框
 
-#venn图
-install.packages("ggvenn")
-library(ggvenn)
-
-ggvenn_4 <- ggplot(otu, aes(A = `M224`, B = `M225`, C = `M226`, D = `M227`)) +
-  geom_venn(fill_color=mypal,fill_alpha = .7,stroke_linetype = "longdash",set_name_size = 8,
-            text_size=5) + 
-  theme_void()+
-  coord_fixed() +
-  labs(title = "Example of ggvenn:: geom_venn function",
-       subtitle = "processed charts with geom_venn()",
-       caption = "Visualization by DataCharm") +
-  theme(plot.title = element_text(hjust = 0.5,vjust = .5,color = "black",face = 'bold',
-                                  size = 20, margin = margin(t = 1, b = 12)),
-        plot.subtitle = element_text(hjust = 0,vjust = .5,size=15),
-        plot.caption = element_text(face = 'bold',size = 12))
 
 
 #######################PCOA################
 
-#载入需要用到的包
+#Load the required packages
 library(vegan)
 library(ggplot2)
 library(ggrepel)
 library(openxlsx)
-#读取数据
+
 metadata <- read.delim(file.choose(),row.names = 1)
 
-#将分组列转换为因子类型，以便于画图时使用
+#Convert grouping columns to factor types for easy use in drawing
 metadata$Sample.Name <-  as.factor(metadata$Sample.Name)
-metadata$specie<-  as.factor(metadata$specie)#同上
+metadata$specie<-  as.factor(metadata$specie)
 
 
-#读取otu表
+
 df <- read.delim(file.choose(),sep = "" ,row.names = 1)
 df <- t(df)
-#数据处理——计算距离
+#Data processing - calculating distance
 
-#使用vegdist函数计算距离（需要计算的数据，method=“所计算的距离类型，通常为bray”）
+#Calculate distance using the vegdist function
 distance <- vegdist(df,method = "bray")
 
-#转换为数据框
+#Convert to Data Box
 dis <- as.matrix(distance)
 write.table(dis,"pcoa.txt",sep = "\t" , quote = F)
 
-#数据处理——pcoa分析
 
-#使用cmdscale函数进行pcoa分析（上一步计算的距离，k=需要降维到几维通常为2维，eig=TRUE为返回eig值下面计算置信区间需要用到）
+
+#Use the cmdscale function for pcoa analysis (the distance calculated in the previous step, k=the number of dimensions that need to be reduced to, usually 2 dimensions, eig=TRUE to return the eig value)
 pcoa <- cmdscale(distance,k=2,eig = TRUE)
 
-#将上步pcoa分析结果中的points转换为数据框并赋值给plot_data，该数据在画图时需要使用
+#Convert the points from the previous PCOA analysis results into data boxes and assign values to the plot_ Data, which needs to be used during drawing
 plot_data <- data.frame({pcoa$points})
 
-#将pcoa处理返回结果中的eig赋值，下面计算置信区间需要用到
+#Assign the eig value in the returned result of PCOA processing, and calculate the confidence interval using
 eig <- pcoa$eig
 
-#将两个分组列和经过pcoa处理后的point数据整合赋值给data以便于画图使用
+#Integrate two grouped columns and the point data processed by PCOA to assign values to data for easy drawing and use
 data <- data.frame(metadata$Sample.Name,metadata$specie,plot_data)
-names(data) <- c("c","s","PCoA1",'PCoA2')#对data列命名
+names(data) <- c("c","s","PCoA1",'PCoA2')
 
-#画图
 p <- ggplot(data=data,aes(x=PCoA1,y=PCoA2,color=c,shape = s)) + 
-  #geom-point函数为散点图函数，alpha控制图形的半透明度，越小越透明，size控制点的大小  
   geom_point(alpha=1,size=2) +
-  #stat-ellipse为绘制椭圆的函数（aes（fill=你想用椭圆圈住的分组列，例子中圈主的是形状），type=椭圆对应的概率分布，默认为t分布，norm为多元分布，geom=控制图形的几何对象，通常为polygon，color=椭圆边界颜色）
   stat_ellipse(aes(fill=s),type = "norm",geom="polygon",alpha=0.2,color=NA ,level = 0.95) + 
-  #labs函数为给图形横纵轴加标签，100*eig[2]/sum(eig)为计算置信度的公式
   labs(x=paste("PCoA1(",format(100*eig[1]/sum(eig),digits = 4),"%)",sep=""),y=paste("PCoA2(",format(100*eig[2]/sum(eig),digits = 4),"%)",sep="")) + 
-  #添加参考线，也就是例子中的虚线，vline为纵向参考线，hline为横向，xintercept=为参考线与x轴的交点，linetype="dotted"为虚线
   geom_vline(aes(xintercept=0),linetype="dotted")+ 
   geom_hline(aes(yintercept=0),linetype="dotted") + 
-  #theme函数控制背景参数，panel.background为画布参数设置，fill为背景颜色，colour为图边框颜色。axis.title.x=element_text(colour = 'black',size=20),axis.title.y = element_text(colour = 'black',size=20)为设置坐标轴标签文本的颜色大小。legend.text = element_text(size = 15)为设置图中示例的文字大小
   theme(panel.background = element_rect(fill='white',colour = 'black'),axis.title.x=element_text(colour = 'black',size=20),axis.title.y = element_text(colour = 'black',size=20),legend.text = element_text(size = 15))
 
 p
 
-p1 <- ggplot(data=data,aes(x=PCoA1,y=PCoA2,shape = s)) + 
-  #geom-point函数为散点图函数，alpha控制图形的半透明度，越小越透明，size控制点的大小  
-  geom_point(alpha=1,size=2) +
-  #stat-ellipse为绘制椭圆的函数（aes（fill=你想用椭圆圈住的分组列，例子中圈主的是形状），type=椭圆对应的概率分布，默认为t分布，norm为多元分布，geom=控制图形的几何对象，通常为polygon，color=椭圆边界颜色）
- 
-  #labs函数为给图形横纵轴加标签，100*eig[2]/sum(eig)为计算置信度的公式
-  labs(x=paste("PCoA1(",format(100*eig[1]/sum(eig),digits = 4),"%)",sep=""),y=paste("PCoA2(",format(100*eig[2]/sum(eig),digits = 4),"%)",sep="")) + 
-  #添加参考线，也就是例子中的虚线，vline为纵向参考线，hline为横向，xintercept=为参考线与x轴的交点，linetype="dotted"为虚线
-  geom_vline(aes(xintercept=0),linetype="dotted")+ 
-  geom_hline(aes(yintercept=0),linetype="dotted") + 
-  #theme函数控制背景参数，panel.background为画布参数设置，fill为背景颜色，colour为图边框颜色。axis.title.x=element_text(colour = 'black',size=20),axis.title.y = element_text(colour = 'black',size=20)为设置坐标轴标签文本的颜色大小。legend.text = element_text(size = 15)为设置图中示例的文字大小
-  theme(panel.background = element_rect(fill='white',colour = 'black'),axis.title.x=element_text(colour = 'black',size=20),axis.title.y = element_text(colour = 'black',size=20),legend.text = element_text(size = 15))
 
 
 #########################################################
 
-############普氏分析################
+############Procrustes analysis################
 
 #Procrustes analysis
 library("vegan")
 library("ggplot2")
 library("cowplot")
 #set working environment
-setwd("C:/Users/ZHUPAN/Desktop/数据图/qiime分类-183asv")
+setwd("xxxxx")
 getwd()
 #bray-curtis similarity of diet and microbiome, Mantel test 
 metadata = read.table(file.choose(), header = TRUE, check.names = FALSE, row.names = 1)
@@ -774,15 +643,10 @@ trans_pro=cbind(trans_pro,seasons)
 colnames(trans_pro) <- colnames(beta_pro)
 pval <- signif(pro_test$signif, 1)
 plot <- rbind(beta_pro, trans_pro)
-col1 = rgb(250/255,60/255,60/255)
-col4 = rgb(0/255,200/255,200/255)
-col8 = rgb(160/255,0/255,200/255)
-col10 = rgb(0/255,160/255,255/255)
-
 
 grass_food_micro <- ggplot(plot) +
   geom_point(size = 4, alpha=0.95, aes(x = V1, y = V2, color = seasons,shape=type))+ 
-  scale_color_manual(values = c(col1,col3,col7,col13,col12)) +
+  scale_color_manual(values = c(“#”,“#”,“#”,“#”,“#”)) +#Change to the desired color
   theme_classic() +
   scale_x_continuous(limits = c(-0.18,0.25))+
   scale_y_continuous(limits = c(-0.18,0.25))+
@@ -832,13 +696,13 @@ p
 
 ################################################
 
-#########Bubble Matrix(气泡矩阵图)###############
+#########Bubble Matrix###############
 
-setwd("D:/办公/食物条形码/正式数据/数据转换/ncbi手动比对/性别差异")
+setwd("xxxxx")
 getwd()
-male <- read.delim("diet-re-top50-无GS10.txt", header = T,row.names = 1)
+male <- read.delim("diet.txt", header = T,row.names = 1)
 data <- as.data.frame(t(data))
-#去除空白行
+#Remove blank lines
 male <- male[rowSums(is.na(male)) != ncol(male),]
 
 lmale <- sweep(lmale,2,colSums(lmale),"/")
@@ -847,31 +711,25 @@ write.table(male,"lfemale-relative-diet.txt", quote = F, sep = "\t")
 
 male$ID <- rownames(male)
 
-#注释：header=T表示数据中的第一行是列名，如果没有列名就用header=F
 library(reshape2)
 library(ggplot2)                          
 
 data_melt<-melt (male)
 names(data_melt) = c('ID','Family', 'Value')
 data_melt <- merge(data_melt, metadata, by = 'ID')
-#注释：melt()函数把表格中的宽数据变成长数据
-p<-ggplot(data_melt, aes(x = season, y = Family, size = Value, color=Family)) + geom_point()
 
+p<-ggplot(data_melt, aes(x = season, y = Family, size = Value, color=Family)) + geom_point()
 
 data_melt$season <- factor(data_melt$season,levels = c("spring","summer","autumn","winter"))
 data_melt$Family <-  factor(data_melt$Family,levels = c("Rosaceae", "Poaceae", "Plantaginaceae","Lamiaceae", "Rutaceae", "Urticaceae", "Elaeagnaceae", "Fabaceae", "Onagraceae", "Ranunculaceae", "Papaveraceae", "Sabiaceae", "Araceae", "Asparagaceae", "Smilacaceae", "Musaceae", "Orchidaceae", "Amaryllidaceae", "Pinaceae", "Equisetaceae", "Orthotrichaceae", "Bryaceae", "Grimmiaceae", "Mniaceae", "Meteoriaceae", "Amblystegiaceae", "Brachytheciaceae", "Leptodontaceae", "Coriariaceae", "Oxalidaceae", "Helwingiaceae", "Rubiaceae", "Araliaceae", "Apiaceae", "Grossulariaceae", "Salicaceae", "Saxifragaceae", "Asteraceae", "Hydrangeaceae", "Boraginaceae", "Caprifoliaceae", "Balsaminaceae", "Gentianaceae", "Celastraceae", "Actinidiaceae", "Aquifoliaceae", "Adoxaceae", "Loranthaceae", "Polygonaceae", "Caryophyllaceae"))
 data_melt$Family <-  factor(data_melt$Family,levels = c("Rosaceae","Actinidiaceae","Balsaminaceae","Polygonaceae","Poaceae","Amaryllidaceae","Sabiaceae","Grossulariaceae","Rubiaceae","Smilacaceae","Saxifragaceae","Aquifoliaceae","Urticaceae","Asteraceae","Fabaceae","Adoxaceae","Ericaceae","Lamiaceae","Apiaceae","Rutaceae","Caryophyllaceae","Oxalidaceae","Coriariaceae","Helwingiaceae","Caprifoliaceae","Araceae","Equisetaceae","Asparagaceae","Ranunculaceae","Celastraceae","Loranthaceae","Orchidaceae","Salicaceae","Gentianaceae","Liliaceae","Papaveraceae","Berberidaceae","Boraginaceae","Onagraceae","Lardizabalaceae","Schisandraceae","Araliaceae","Sematophyllaceae","Brachytheciaceae","Lauraceae","Fagaceae","Lycopodiaceae","Nartheciaceae","Betulaceae","Dicranaceae"))
 
-
-#注释：package使用之前需要调用
 p<-ggplot(data_melt, aes(x = season, y = Family, size = Value, color=season)) + geom_point()+
   theme(panel.background = element_blank(),
         panel.grid.major = element_line(colour = "gray"),
         panel.border = element_rect(colour="black",fill=NA))+
   scale_color_manual(values = color)
 p
-
-
 
 
 male <- data[which(data$gender=="Male"),]
@@ -887,32 +745,9 @@ female <- as.data.frame(t(female))
 male <- as.data.frame(t(male))
 
 
+############kegg#####################
 
-#########################################
-
-##########热图##################
-
-library(pheatmap)
-l1 <- read.delim(file.choose(),row.names = 1,header = T)
-#计算相对丰度
-l1_1 <- sweep(l1,2,colSums(l1),"/")
-#读取分组
-me <- read.delim(file.choose(),row.names = 1,header = T)
-
-p <- pheatmap(l1_1,cluster_rows = T,cluster_cols = F,
-         color=colorRampPalette(c("navy","white","firebrick3"))(100),
-         show_colnames = T,border_color = NA,scale = "row",show_rownames =T,
-         annotation_col = me,
-         display_numbers = matrix(ifelse(l1_1 > 2, "*", ""), nrow(l1_1)))
-
-me <- c("#708090",'#68A180','#F3B1A0', '#D6E7A3')
-names(me) <- c("spring","summer","autun","winter")
-
-
-
-############kegg上色#####################
-
-setwd("D:/办公/食物条形码/正式数据/微生物/陈-数据/肠形/肠型功能")
+setwd("xxxxx")
 kegg <- read.delim(file.choose(),row.names = 1 ,header = T)
 
 kegg <- sweep(kegg,2,colSums(kegg),"/")
@@ -923,19 +758,16 @@ write.table(kegg,"kegg.txt" , quote = F , sep = "\t")
 library(ggplot2)
 library(reshape2)
 
-# 读取文件
-KEGG <- read.table("肠型1.txt",header = TRUE,sep = "\t")
+KEGG <- read.table("xx.txt",header = TRUE,sep = "\t")
 
 
-
-# KEGG第一层分类中名字特别长，需要自动换行(替换空格为换行\n)
 swr = function(string, nwrap = 12){
   paste(strwrap(string,width = nwrap),collapse = "\n")
 }
 swr = Vectorize(swr)
 KEGG$L1 <- swr(KEGG$L1)
 
-# 绘制L2级和丰度的柱状图，按L1着色并分面
+# Draw a bar chart of L2 level and abundance, color it according to L1 and divide it into different planes
 p <- ggplot(KEGG,aes(Abundance,L2)) +
   geom_bar(aes(fill = L1),stat = "identity",width = 0.6) +
   xlab("Relative abundance (%)") + 
@@ -953,20 +785,20 @@ p <- ggplot(KEGG,aes(Abundance,L2)) +
         legend.position = "none",
         strip.text.y = element_text(angle = 0,size = 12,face = "bold")) +
   facet_grid(L1~.,space = "free_y",scales = "free_y")
-# 预览
+
 p
-# 保存矢量图
-ggsave("肠型1-L2.pdf", p, width = 183, height = 240, units = "mm")
+
+#ggsave("xxx.pdf", p, width = 183, height = 240, units = "mm")
 
 
 #######################################################
 
-################流图###########################
+################flow graph###########################
 
 rm(list=ls())
 
 #ggualluvial
-setwd('D:/办公/食物条形码/正式数据/数据转换/流图')
+setwd('xxxxx')
 library("reshape2", quietly=T, warn.conflicts=F)
 library("ggalluvial")
 library("ggplot2")
